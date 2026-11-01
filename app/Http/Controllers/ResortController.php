@@ -124,7 +124,7 @@ class ResortController extends Controller
 
         $resort->load([
             'images',
-            'amenities' => fn (Builder $amenity) => $amenity->where('amenities.is_active', true),
+            'amenities' => fn ($amenity) => $amenity->where('amenities.is_active', true),
             'rooms' => fn ($query) => $query->active()->with('images')->orderBy('price_per_night'),
         ]);
 

@@ -103,7 +103,7 @@ class ResortController extends Controller
         return view('admin.resorts.edit', [
             'resort' => $resort,
             'barangays' => config('visitdasol.barangays'),
-            'amenities' => Amenity::active()->orderBy('name')->get(),
+            'amenities' => $resort->amenities()->orderBy('name')->get(),
             'selectedAmenities' => $resort->amenities->pluck('id')->all(),
         ]);
     }

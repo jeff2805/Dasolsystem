@@ -52,10 +52,7 @@ class ResortController extends Controller
             ->bookable()
             ->join('resorts', 'resorts.id', '=', 'rooms.resort_id')
             ->select('rooms.*')
-            ->with([
-    'resort' => fn ($query) => $query->withRating(),
-    'images',
-])
+            ->with(['resort.amenities' => fn (Builder $amenity) => $amenity->where('amenities.is_active', true), 'images'])
             ->when($filters['q'] !== '', function (Builder $query) use ($filters) {
                 $query->where(function (Builder $match) use ($filters) {
                     $match->where('rooms.name', 'like', "%{$filters['q']}%")
@@ -71,8 +68,8 @@ class ResortController extends Controller
 
         // Every chosen amenity must be present, not just one of them. Amenities
         // belong to the resort, so this asks about the room's resort.
-        foreach ($filters['amenities'] as $amenityId) {
-            $rooms->whereHas('resort.amenities', fn (Builder $amenity) => $amenity->whereKey($amenityId));
+        foreach ($filters['amenities'] as $amenityName) {
+            $rooms->whereHas('resort.amenities', fn (Builder $amenity) => $amenity->where('amenities.name', $amenityName)->where('amenities.is_active', true));
         }
 
         match ($filters['sort']) {
@@ -108,7 +105,10 @@ class ResortController extends Controller
             'filters' => $filters,
             'barangays' => config('visitdasol.barangays'),
             'roomTypes' => RoomType::options(),
-            'amenities' => Amenity::active()->orderBy('name')->get(),
+            'amenities' => Amenity::query()->active()
+                ->selectRaw('MIN(id) as id, name, icon')
+                ->groupBy('name', 'icon')
+                ->orderBy('name')->get(),
             'sorts' => [
                 'recommended' => 'Recommended',
                 'price_low' => 'Price, low to high',
@@ -124,7 +124,7 @@ class ResortController extends Controller
 
         $resort->load([
             'images',
-            'amenities',
+            'amenities' => fn (Builder $amenity) => $amenity->where('amenities.is_active', true),
             'rooms' => fn ($query) => $query->active()->with('images')->orderBy('price_per_night'),
         ]);
 
@@ -161,7 +161,7 @@ class ResortController extends Controller
                 ->get(),
             'nearby' => Resort::publiclyVisible()
                 ->whereKeyNot($resort->id)
-                ->with('amenities')
+                ->with(['amenities' => fn (Builder $amenity) => $amenity->where('amenities.is_active', true)])
                 ->withMin(['rooms as starting_price' => fn ($query) => $query->active()], 'price_per_night')
                 ->orderByRaw('CASE WHEN barangay = ? THEN 0 ELSE 1 END', [$resort->barangay])
                 ->orderByDesc('is_featured')
@@ -238,8 +238,13 @@ class ResortController extends Controller
         $stay = $this->stayFromRequest($request);
 
         $amenities = collect((array) $request->query('amenities', []))
-            ->map(fn ($value) => (int) $value)
-            ->filter()
+            ->map(function ($value) {
+                if (is_numeric($value)) {
+                    return Amenity::query()->whereKey((int) $value)->value('name');
+                }
+                return is_string($value) ? trim($value) : null;
+            })
+            ->filter(fn ($value) => is_string($value) && $value !== '')
             ->unique()
             ->values()
             ->all();

@@ -49,6 +49,10 @@ class ResortRequest extends FormRequest
     public function rules(): array
     {
         $bounds = config('visitdasol.map.bounds');
+        // Owner forms resolve their own resort from the signed-in account;
+        // the MTO edit route supplies the resort explicitly.
+        $amenityResortId = $this->route('resort')?->id
+            ?? $this->user()?->resort()->value('id');
 
         return [
             'name' => ['required', 'string', 'min:3', 'max:150'],
@@ -63,7 +67,12 @@ class ResortRequest extends FormRequest
             'check_in_time' => ['required', 'date_format:H:i'],
             'check_out_time' => ['required', 'date_format:H:i'],
             'amenities' => ['nullable', 'array', 'max:40'],
-            'amenities.*' => [Rule::exists('amenities', 'id')->where('is_active', true)],
+            'amenities.*' => [
+                Rule::exists('amenity_resort', 'amenity_id')->where(
+                    'resort_id',
+                    $amenityResortId
+                ),
+            ],
             'main_image' => ['nullable', ...$this->imageRules()],
             'remove_main_image' => ['nullable', 'boolean'],
         ];
@@ -83,7 +92,7 @@ class ResortRequest extends FormRequest
             'website_url.url' => 'Enter a full web address starting with https://',
             'check_in_time.date_format' => 'Use the time picker, for example 2:00 PM.',
             'check_out_time.date_format' => 'Use the time picker, for example 12:00 PM.',
-            'amenities.*.exists' => 'Choose amenities from the list.',
+            'amenities.*.exists' => 'Choose amenities belonging to your own resort.',
         ];
 
         foreach ($this->imageMessages('cover photo') as $rule => $message) {

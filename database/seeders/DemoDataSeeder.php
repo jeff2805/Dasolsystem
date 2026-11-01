@@ -561,7 +561,26 @@ class DemoDataSeeder extends Seeder
      */
     private function amenities(Resort $resort, array $names): void
     {
-        $resort->amenities()->sync(Amenity::query()->whereIn('name', $names)->pluck('id'));
+        // Demo resorts receive their own amenity rows. Never attach a shared
+        // catalogue row to multiple resorts: owners manage these independently.
+        $sourceAmenities = Amenity::query()->whereIn('name', $names)->get();
+        $ownedAmenityIds = [];
+        foreach ($sourceAmenities as $source) {
+            $owned = $resort->amenities()->where('amenities.name', $source->name)->first();
+
+            if ($owned === null) {
+                $owned = Amenity::query()->create([
+                    'name' => $source->name,
+                    'icon' => $source->icon,
+                    'is_active' => true,
+                ]);
+                $resort->amenities()->attach($owned->id);
+            }
+
+            $ownedAmenityIds[] = $owned->id;
+        }
+
+        $resort->amenities()->sync($ownedAmenityIds);
     }
 
     private function room(

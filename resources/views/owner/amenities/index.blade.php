@@ -1,23 +1,42 @@
 @extends('layouts.owner')
 
-@section('title', 'Amenities')
+@section('title', 'My resort amenities')
 
 @section('content')
-    <x-page-header title="Amenities"
-                   subtitle="What every resort on Visit Dasol can offer. Tick the ones yours has on your resort page; add one here if it is missing.">
+    <x-page-header title="My resort amenities"
+                   subtitle="Manage only the amenities offered by {{ $resort->name }}. Changes here do not affect other resorts.">
         <a class="btn btn-light border" href="{{ route('owner.resort.edit') }}">Back to my resort</a>
     </x-page-header>
+
+    @if (session('success'))
+        <div class="alert alert-success" role="status">{{ session('success') }}</div>
+    @endif
+
+    @if ($errors->any())
+        <div class="alert alert-danger" role="alert">
+            <strong>Please check the form.</strong>
+            <ul class="mb-0 mt-2">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <div class="row g-4">
         <div class="col-lg-7">
             <section class="vd-panel">
-                <x-scroll-region label="Amenities">
+                <div class="p-3 border-bottom">
+                    <h2 class="h5 mb-1">Amenities on my resort</h2>
+                    <p class="small text-muted-vd mb-0">Edit, hide, or delete your own entries at any time.</p>
+                </div>
+                <x-scroll-region label="My resort amenities">
                     <table class="table align-middle mb-0">
                         <thead>
                             <tr>
                                 <th scope="col">Amenity</th>
-                                <th scope="col">Resorts offering it</th>
-                                <th scope="col">On my resort</th>
+                                <th scope="col">Visibility</th>
+                                <th scope="col" class="text-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -28,28 +47,65 @@
                                             <span class="vd-feature__icon" style="width:2.25rem;height:2.25rem;font-size:1rem">
                                                 <i class="bi bi-{{ $amenity->icon ?? 'check-lg' }}" aria-hidden="true"></i>
                                             </span>
-                                            {{ $amenity->name }}
+                                            <span>{{ $amenity->name }}</span>
                                         </span>
                                     </td>
-
-                                    {{-- Across the whole municipality, not just this
-                                         owner's. It is what tells somebody whether
-                                         the thing they are about to add already has
-                                         a name everybody else is using. --}}
-                                    <td>{{ $amenity->resorts_count }}</td>
-
                                     <td>
-                                        @if (in_array($amenity->id, $mine, true))
-                                            <span class="vd-badge vd-badge--success">Yes</span>
+                                        @if ($amenity->is_active)
+                                            <span class="vd-badge vd-badge--success">Visible</span>
                                         @else
-                                            <span class="text-muted-vd">&mdash;</span>
+                                            <span class="vd-badge">Hidden</span>
                                         @endif
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-flex flex-wrap justify-content-end gap-2">
+                                            <button class="btn btn-sm btn-outline-primary" type="button"
+                                                    data-bs-toggle="collapse" data-bs-target="#edit-amenity-{{ $amenity->id }}"
+                                                    aria-expanded="false" aria-controls="edit-amenity-{{ $amenity->id }}">
+                                                Edit
+                                            </button>
+                                            <form method="POST" action="{{ route('owner.amenities.toggle', $amenity) }}">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button class="btn btn-sm btn-outline-secondary" type="submit">
+                                                    {{ $amenity->is_active ? 'Disable' : 'Enable' }}
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ route('owner.amenities.destroy', $amenity) }}"
+                                                  onsubmit="return confirm('Delete this amenity from your resort?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="collapse" id="edit-amenity-{{ $amenity->id }}">
+                                    <td colspan="3">
+                                        <form method="POST" action="{{ route('owner.amenities.update', $amenity) }}"
+                                              class="row g-2 align-items-end">
+                                            @csrf
+                                            @method('PUT')
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="name-{{ $amenity->id }}">Amenity name</label>
+                                                <input class="form-control" id="name-{{ $amenity->id }}" name="name"
+                                                       value="{{ $amenity->name }}" maxlength="80" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label" for="icon-{{ $amenity->id }}">Icon name</label>
+                                                <input class="form-control" id="icon-{{ $amenity->id }}" name="icon"
+                                                       value="{{ $amenity->icon }}" maxlength="50">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <button class="btn btn-primary w-100" type="submit">Save</button>
+                                            </div>
+                                        </form>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="text-muted-vd">
-                                        Nothing on the list yet. Add the first one.
+                                    <td colspan="3" class="text-center text-muted-vd py-4">
+                                        No amenities yet. Add the amenities your resort offers.
                                     </td>
                                 </tr>
                             @endforelse
@@ -60,41 +116,25 @@
         </div>
 
         <div class="col-lg-5">
-            <section class="vd-panel p-4 mb-4">
+            <section class="vd-panel p-4">
                 <h2 class="h5 mb-3">Add an amenity</h2>
-
                 <form method="POST" action="{{ route('owner.amenities.store') }}">
                     @csrf
-
                     <x-form.input name="name" label="Amenity name" required
                                   :value="old('name')"
-                                  help="What guests would call it, such as “Kayak hire” or “Videoke”." />
-
+                                  help="Example: Kayak rental, Beach volleyball, or Bonfire area." />
                     <x-form.input name="icon" label="Icon name" :value="old('icon')"
-                                  help="Optional. A Bootstrap Icons name such as wifi, cup-hot, or water." />
-
+                                  help="Optional Bootstrap Icons name, such as wifi, cup-hot, or water." />
                     <button type="submit" class="btn btn-primary">Add amenity</button>
                 </form>
             </section>
 
-            {{--
-                Said plainly, because the consequence is not obvious from
-                the form. One table serves every resort and the public
-                filter, so a careless entry is everybody's problem.
-            --}}
-            <aside class="vd-panel p-4">
-                <h2 class="h6 mb-2">This list is shared</h2>
-                <p class="small text-muted-vd mb-2">
-                    Every resort on Visit Dasol picks from the same list, and visitors
-                    filter the search by it. Adding something puts it in front of all of
-                    them, so check it is not already here under another name first —
-                    “Wi-Fi” and “WiFi” would split the filter in two and each would find
-                    only half the resorts.
-                </p>
+            <aside class="vd-panel p-4 mt-4">
+                <h2 class="h6 mb-2">Your list is private to your resort</h2>
                 <p class="small text-muted-vd mb-0">
-                    Nothing here can be renamed or removed from this page, because other
-                    resorts may already be using it. Ask the tourism office if something
-                    is wrong with an entry.
+                    Other resort owners cannot edit or delete these amenities. Disabling an amenity
+                    hides it from your public resort page and visitor filters without deleting it.
+                    Deleting removes only your resort's entry.
                 </p>
             </aside>
         </div>

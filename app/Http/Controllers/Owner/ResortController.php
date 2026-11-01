@@ -175,7 +175,7 @@ class ResortController extends Controller
         return [
             'resort' => $resort,
             'barangays' => config('visitdasol.barangays'),
-            'amenities' => Amenity::active()->orderBy('name')->get(),
+            'amenities' => $resort->exists ? $resort->amenities()->orderBy('name')->get() : collect(),
             'selectedAmenities' => $resort->exists ? $resort->amenities->pluck('id')->all() : [],
         ];
     }

@@ -257,9 +257,6 @@ Route::prefix('tourist')
         // Reservations
         Route::get('/bookings', [TouristBookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/create', [TouristBookingController::class, 'create'])->name('bookings.create');
-        Route::post('/bookings/payment-terms-preview', [TouristBookingController::class, 'previewPaymentTerms'])
-            ->middleware('throttle:60,1')
-            ->name('bookings.payment-terms-preview');
         Route::post('/bookings', [TouristBookingController::class, 'store'])
             ->middleware('throttle:10,1')
             ->name('bookings.store');
@@ -312,20 +309,17 @@ Route::prefix('owner')
         Route::put('/resort', [OwnerResortController::class, 'update'])->name('resort.update');
         Route::patch('/resort/resubmit', [OwnerResortController::class, 'resubmit'])->name('resort.resubmit');
 
-        /*
-        | The shared amenity list.
-        |
-        | ADD ONLY. Which amenities a resort HAS is settled by the
-        | tickboxes on the resort form above; this is for putting
-        | something on the list that is not there yet. There is no
-        | update, toggle or destroy on purpose — one table serves every
-        | resort and the public filter, so an owner renaming or deleting
-        | an entry would be reaching into other people's listings.
-        */
+        // Each amenity belongs to this owner's resort. Controller checks
+        // the resort relationship on every edit/toggle/delete request.
         Route::get('/amenities', [OwnerAmenityController::class, 'index'])->name('amenities.index');
         Route::post('/amenities', [OwnerAmenityController::class, 'store'])
-            ->middleware('throttle:20,1')
-            ->name('amenities.store');
+            ->middleware('throttle:20,1')->name('amenities.store');
+        Route::put('/amenities/{amenity}', [OwnerAmenityController::class, 'update'])
+            ->name('amenities.update');
+        Route::patch('/amenities/{amenity}/status', [OwnerAmenityController::class, 'toggle'])
+            ->name('amenities.toggle');
+        Route::delete('/amenities/{amenity}', [OwnerAmenityController::class, 'destroy'])
+            ->name('amenities.destroy');
 
         // Room types
         /*

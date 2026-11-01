@@ -46,17 +46,56 @@ class SatelliteLabelsTest extends TestCase
     }
 
     /**
-     * The imagery is still Esri's World Imagery. This redesign adds
-     * names to it; it does not replace it.
+     * The imagery is configured, credited, and separate from the names.
+     *
+     * THIS USED TO NAME ONE VENDOR. It asserted Esri's World Imagery
+     * URL character for character, so the day the office moved the
+     * imagery to Mapbox the test failed for a change that was entirely
+     * intentional — it was reporting a decision, not a defect.
+     *
+     * What actually has to hold is below, and holds whoever supplies
+     * the tiles:
+     *
+     *   - there IS an imagery layer, or the Satellite and Hybrid
+     *     buttons have nothing behind them;
+     *   - it is a real tile URL, so Leaflet can fill in the numbers;
+     *   - it is credited, because every provider's licence requires it;
+     *   - the name overlays come from somewhere else. They have to be
+     *     published as TRANSPARENT reference tiles. An ordinary street
+     *     layer is opaque and would simply hide the photograph, which
+     *     is the street map with extra steps.
      */
-    public function test_the_existing_imagery_is_untouched(): void
+    public function test_the_imagery_is_configured_credited_and_separate_from_the_names(): void
     {
-        $this->assertSame(
-            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            config('visitdasol.map.satellite_url')
+        $map = config('visitdasol.map');
+
+        $this->assertNotNull($map['satellite_url'], 'Satellite and Hybrid need an imagery layer.');
+        $this->assertStringStartsWith('https://', $map['satellite_url']);
+
+        foreach (['{z}', '{x}', '{y}'] as $placeholder) {
+            $this->assertStringContainsString($placeholder, $map['satellite_url']);
+        }
+
+        $this->assertNotEmpty(
+            trim(strip_tags((string) $map['satellite_attribution'])),
+            'Every tile provider requires attribution on the map.'
         );
 
-        $this->assertStringContainsString('Esri', config('visitdasol.map.satellite_attribution'));
+        $imagery = parse_url($map['satellite_url'], PHP_URL_HOST);
+
+        foreach (['satellite_labels_url', 'satellite_roads_url'] as $key) {
+            if (! $map[$key]) {
+                continue;
+            }
+
+            $this->assertNotSame(
+                $imagery,
+                parse_url($map[$key], PHP_URL_HOST),
+                "The {$key} overlay comes from the same host as the imagery. "
+                .'The overlays must be transparent reference tiles from a '
+                .'provider that publishes them as such.'
+            );
+        }
     }
 
     /* The policy that would silently break them --------------------------- */
@@ -144,22 +183,32 @@ class SatelliteLabelsTest extends TestCase
     /**
      * The street map already has its names drawn in. Laying these over
      * it would print every name twice, slightly offset.
+     *
+     * NARROWED, DELIBERATELY. This used to read "labels travel with the
+     * imagery", and the condition was wantsSatellite. There are three
+     * base maps now and the photograph comes two ways: Satellite is the
+     * imagery alone, Hybrid is the imagery with these names on it. So
+     * the rule is no longer "imagery" but "hybrid" — which still keeps
+     * them off the street map, which is what this test is really for.
      */
-    public function test_the_labels_travel_with_the_imagery_only(): void
+    public function test_the_labels_are_drawn_for_hybrid_and_for_nothing_else(): void
     {
         $source = $this->mapJs();
 
         $this->assertMatchesRegularExpression(
-            '/labelLayers\.forEach.*?wantsSatellite && !map\.hasLayer\(layer\).*?layer\.addTo\(map\)/s',
+            '/labelLayers\.forEach.*?wantsLabels && !map\.hasLayer\(layer\).*?layer\.addTo\(map\)/s',
             $source,
-            'Label overlays must be added only in satellite mode.'
+            'Label overlays must be added only for the hybrid base map.'
         );
 
         $this->assertMatchesRegularExpression(
-            '/labelLayers\.forEach.*?!wantsSatellite && map\.hasLayer\(layer\).*?map\.removeLayer\(layer\)/s',
+            '/labelLayers\.forEach.*?!wantsLabels && map\.hasLayer\(layer\).*?map\.removeLayer\(layer\)/s',
             $source,
-            'Label overlays must be removed again in street mode.'
+            'Label overlays must be removed again for every other base map.'
         );
+
+        // And wantsLabels is hybrid alone, not "any photograph".
+        $this->assertStringContainsString("var wantsLabels = name === 'hybrid';", $source);
     }
 
     /* Decluttering without duplicating ------------------------------------- */

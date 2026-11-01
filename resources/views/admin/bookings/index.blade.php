@@ -85,7 +85,6 @@
                     <th scope="col">Resort</th>
                     <th scope="col">Guest</th>
                     <x-sort-header :sort="$sort" column="check_in">Stay</x-sort-header>
-                    <x-sort-header :sort="$sort" column="total" align="end">Amount</x-sort-header>
                     <x-sort-header :sort="$sort" column="status">Status</x-sort-header>
                     <th scope="col" class="text-end">Action</th>
                 </tr>
@@ -109,7 +108,6 @@
                         {{ $booking->dateRangeLabel() }}
                         <span class="d-block small text-muted-vd">{{ $booking->durationLabel() }}</span>
                     </td>
-                    <td class="text-end text-nowrap">@peso($booking->total_amount)</td>
                     <td><x-status-badge :status="$booking->status" /></td>
                     <td class="text-end">
                         <a class="btn btn-sm btn-outline-primary" href="{{ route('admin.bookings.show', $booking) }}">View</a>

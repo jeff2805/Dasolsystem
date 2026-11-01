@@ -44,7 +44,7 @@ final class Xlsx
      *
      * @param  iterable<int, list<string|int|float|null>>  $rows
      */
-    public function write(iterable $rows): string
+    public function write(iterable $rows, bool $lastRowIsTotal = false): string
     {
         $path = tempnam(sys_get_temp_dir(), 'vdxlsx');
 
@@ -59,7 +59,7 @@ final class Xlsx
         $zip->addFromString('xl/workbook.xml', $this->workbook());
         $zip->addFromString('xl/_rels/workbook.xml.rels', $this->workbookRels());
         $zip->addFromString('xl/styles.xml', $this->styles());
-        $zip->addFromString('xl/worksheets/sheet1.xml', $this->sheet($rows));
+        $zip->addFromString('xl/worksheets/sheet1.xml', $this->sheet($rows, $lastRowIsTotal));
 
         $zip->close();
 
@@ -67,7 +67,7 @@ final class Xlsx
     }
 
     /** @param  iterable<int, list<string|int|float|null>>  $rows */
-    private function sheet(iterable $rows): string
+    private function sheet(iterable $rows, bool $lastRowIsTotal = false): string
     {
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
@@ -96,13 +96,18 @@ final class Xlsx
         $xml .= '</row>';
 
         $number = 1;
+        $rowCount = is_countable($rows) ? count($rows) : null;
+        $position = 0;
 
         foreach ($rows as $row) {
             $number++;
+            $position++;
+            $isTotal = $lastRowIsTotal && $rowCount !== null && $position === $rowCount;
             $xml .= '<row r="'.$number.'">';
 
             foreach (array_values($row) as $index => $value) {
-                $xml .= $this->cell($index, $number, $value, 0);
+                $style = $isTotal ? count($this->headings) + 1 : 0;
+                $xml .= $this->cell($index, $number, $value, $style);
             }
 
             $xml .= '</row>';
@@ -163,8 +168,13 @@ final class Xlsx
                 .'<alignment horizontal="center" vertical="center" wrapText="1"/></xf>';
         }
 
+        // One extra bold style is reserved for the final GRAND TOTAL row.
+        $cellXfs .= '<xf numFmtId="0" fontId="1" fillId="1" borderId="1"'
+            .' xfId="0" applyFont="1" applyBorder="1">'
+            .'<alignment vertical="center"/></xf>';
+
         $fillCount = count($this->headings) + 2;
-        $xfCount = count($this->headings) + 1;
+        $xfCount = count($this->headings) + 2;
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'

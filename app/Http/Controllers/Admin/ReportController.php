@@ -124,25 +124,37 @@ class ReportController extends Controller
 
         [$from, $to, $resort] = $this->filters($request);
 
-        $headings = [
-            'Resort',
-            'GCheckin',
-            'O-night',
-            'R-used',
+        /*
+         * The MTO Excel return is grouped by resort: one row per resort,
+         * regardless of how many bookings it receives during the period.
+         * The numeric columns are additive down the sheet, so the final
+         * GRAND TOTAL row reconciles with the individual resort rows.
+         */
+        $originColumns = [
+            'Pangasinan' => 'pangasinan',
+            'Ilocos Region' => 'ilocos',
+            'NCR' => 'ncr',
+            'Other PH' => 'other_ph',
+            'Foreign' => 'foreign',
+        ];
+
+        $numericColumns = [
+            'Check-ins',
+            'Guest Nights',
+            'Day Tour',
+            'Room Use',
             'Male',
             'Female',
-            'Pangasinan',
-            'Elyu',
-            'BC',
-            'Ilocos',
-            'NCR',
-            'Bul',
+            ...array_keys($originColumns),
         ];
+
+        $headings = ['Resort', ...$numericColumns];
 
         $fills = [
             'D9C9C4',
             'BFD9D8',
             '7ED0A5',
+            'A9C4F5',
             'A9C4F5',
             'F6A96B',
             'F15FA6',
@@ -155,58 +167,57 @@ class ReportController extends Controller
         ];
 
         $widths = [
-            26, 14, 12, 12, 10, 10,
-            16, 12, 10, 12, 10, 10,
+            28, 12, 14, 12, 13, 10, 10,
+            15, 14, 10, 12, 14,
         ];
 
-        $rows = $this->reports
-            ->accommodationRegister($from, $to, $resort?->id)
-            ->map(function (array $row): array {
-                $origin = $row['origin'] ?? [];
+        $bookings = $this->reports
+            ->accommodationRegister($from, $to, $resort?->id);
+
+        $rows = $bookings
+            ->groupBy('resort')
+            ->map(function ($resortBookings, string $resortName) use ($originColumns): array {
+                $originTotals = [];
+
+                foreach ($originColumns as $heading => $originKey) {
+                    $originTotals[$heading] = $resortBookings->sum(
+                        fn (array $booking): int => (int) (
+                            $booking['origin'][$originKey] ?? 0
+                        )
+                    );
+                }
 
                 return [
-                    $row['resort'] ?? '',
-                    $row['check_in']?->toDateString() ?? '',
-                    $row['guest_nights'] ?? 0,
-                    $row['rooms_used'] ?? 0,
-                    $row['male'] ?? 0,
-                    $row['female'] ?? 0,
-
-                    $this->originCount($origin, [
-                        'pangasinan',
-                    ]),
-
-                    $this->originCount($origin, [
-                        'elyu',
-                        'la union',
-                    ]),
-
-                    $this->originCount($origin, [
-                        'bc',
-                    ]),
-
-                    $this->originCount($origin, [
-                        'ilocos',
-                    ]),
-
-                    $this->originCount($origin, [
-                        'ncr',
-                        'national capital region',
-                    ]),
-
-                    $this->originCount($origin, [
-                        'bul',
-                        'bulacan',
-                    ]),
+                    $resortName,
+                    $resortBookings->count(),
+                    $resortBookings->sum('guest_nights'),
+                    $resortBookings->sum('day_tour'),
+                    $resortBookings->sum('rooms_used'),
+                    $resortBookings->sum('male'),
+                    $resortBookings->sum('female'),
+                    ...array_values($originTotals),
                 ];
-            });
+            })
+            ->sortBy(fn (array $row): string => (string) $row[0], SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        // Add a numeric grand total for every measure, not a sum of labels.
+        $grandTotal = ['GRAND TOTAL'];
+
+        foreach (range(1, count($numericColumns)) as $columnIndex) {
+            $grandTotal[] = (int) $rows->sum(
+                fn (array $row): int => (int) ($row[$columnIndex] ?? 0)
+            );
+        }
+
+        $rows->push($grandTotal);
 
         $file = (new Xlsx(
             'Tourism Statistics',
             $headings,
             $fills,
             $widths
-        ))->write($rows);
+        ))->write($rows, true);
 
         $name = 'dasol-tourism-statistics-'
             .$from->format('Y-m-d')
@@ -221,7 +232,7 @@ class ReportController extends Controller
     }
 
     /**
-     * Export the same 12 tourism statistics columns to CSV.
+     * Export tourism statistics to CSV.
      */
     public function export(Request $request): StreamedResponse
     {

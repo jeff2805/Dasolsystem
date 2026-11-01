@@ -26,7 +26,6 @@
 <p class="vd-sidebar__group">Monitoring</p>
 <ul class="vd-sidebar__list">
     <x-sidebar-link route="admin.bookings.index" match="admin.bookings.*" icon="journal-check">Bookings</x-sidebar-link>
-    <x-sidebar-link route="admin.reviews.index" match="admin.reviews.*" icon="chat-quote">Reviews</x-sidebar-link>
     <x-sidebar-link route="admin.map" icon="map">Map</x-sidebar-link>
     <x-sidebar-link route="admin.reports.index" match="admin.reports.*" icon="graph-up">Reports</x-sidebar-link>
     <x-sidebar-link route="admin.activity-logs.index" icon="clock-history">Activity log</x-sidebar-link>

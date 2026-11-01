@@ -257,6 +257,25 @@ Route::prefix('tourist')
         // Reservations
         Route::get('/bookings', [TouristBookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/create', [TouristBookingController::class, 'create'])->name('bookings.create');
+
+        /*
+        | What this resort asks for up front, for the figures the guest
+        | is looking at. Display only: BookingService prices the stay
+        | again and asks the policy again when the request is submitted.
+        |
+        | ABOVE /bookings/{booking} ON PURPOSE. Below it, Laravel would
+        | read "payment-terms-preview" as a booking reference.
+        |
+        | Restored after it went missing: BookingController still had
+        | previewPaymentTerms() and create.blade.php still called
+        | route('tourist.bookings.payment-terms-preview'), so with the
+        | route gone the booking form threw RouteNotFoundException and
+        | returned a 500 for every guest.
+        */
+        Route::post('/bookings/payment-terms-preview', [TouristBookingController::class, 'previewPaymentTerms'])
+            ->middleware('throttle:60,1')
+            ->name('bookings.payment-terms-preview');
+
         Route::post('/bookings', [TouristBookingController::class, 'store'])
             ->middleware('throttle:10,1')
             ->name('bookings.store');

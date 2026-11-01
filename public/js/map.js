@@ -425,33 +425,51 @@
       }
     }
 
+    /*
+     * THREE CHOICES, NOT TWO.
+     *
+     *   streets    the street map, which carries its own lettering
+     *   satellite  the photograph on its own, nothing written on it
+     *   hybrid     the photograph with road and place names over it
+     *
+     * Satellite and hybrid share one imagery layer and differ only in
+     * whether the transparent reference tiles are drawn. Before this
+     * there was no way to see the imagery clean: "Satellite" always
+     * carried the names, so a visitor who wanted to look at the
+     * coastline itself could not.
+     *
+     * Nothing here moves the map. Leaflet keeps the centre and zoom
+     * across a layer swap, which is what makes switching feel free.
+     */
     function showBasemap(name) {
       if (!satellite) {
         return;
       }
 
-      var wantsSatellite = name === 'satellite';
+      var onImagery = name === 'satellite' || name === 'hybrid';
 
-      if (wantsSatellite && !map.hasLayer(satellite)) {
+      // Names ride on the photograph only, and only in hybrid. Over the
+      // street map they would print every name twice, slightly offset;
+      // over plain satellite they are the thing being switched off.
+      var wantsLabels = name === 'hybrid';
+
+      if (onImagery && !map.hasLayer(satellite)) {
         map.removeLayer(streets);
         satellite.addTo(map);
-      } else if (!wantsSatellite && !map.hasLayer(streets)) {
+      } else if (!onImagery && !map.hasLayer(streets)) {
         map.removeLayer(satellite);
         streets.addTo(map);
       }
 
-      /*
-       * The names travel with the imagery and only with it. The street
-       * map already has its own lettering drawn in, and laying these
-       * over it would print every name twice, slightly offset.
-       */
       labelLayers.forEach(function (layer) {
-        if (wantsSatellite && !map.hasLayer(layer)) {
+        if (wantsLabels && !map.hasLayer(layer)) {
           layer.addTo(map);
-        } else if (!wantsSatellite && map.hasLayer(layer)) {
+        } else if (!wantsLabels && map.hasLayer(layer)) {
           map.removeLayer(layer);
         }
       });
+
+      var wantsSatellite = onImagery;
 
       /*
        * The barangay chips and outline labels need a heavier halo over
@@ -484,6 +502,7 @@
         [
           { key: 'streets', label: 'Map', icon: 'map' },
           { key: 'satellite', label: 'Satellite', icon: 'globe-americas' },
+          { key: 'hybrid', label: 'Hybrid', icon: 'layers' },
         ].forEach(function (choice) {
           var button = L.DomUtil.create('button', 'vd-basemap__option', bar);
 
@@ -511,9 +530,18 @@
 
       basemapControl.addTo(map);
 
-      // Whatever they chose last time. Satellite is a deliberate choice,
-      // so it is worth not making twice.
-      showBasemap(rememberedBasemap() === 'satellite' ? 'satellite' : 'streets');
+      /*
+       * Whatever they chose last time. Leaving the street map as the
+       * default for anything unrecognised also covers the older stored
+       * value from when there were only two choices.
+       */
+      var remembered = rememberedBasemap();
+
+      showBasemap(
+        remembered === 'satellite' || remembered === 'hybrid'
+          ? remembered
+          : 'streets'
+      );
     }
 
     /* Points ------------------------------------------------------------ */
@@ -525,6 +553,21 @@
     var hereMarker = null;
     var hereCircle = null;  // the ring showing how sure the browser is
     var routeLine = null;
+
+    // The "Clear route" control, built once a route is actually drawn
+    // and hidden again when it is taken away.
+    var clearRouteButton = null;
+
+    /*
+     * Following the visitor as they move.
+     *
+     * Null until they ask for it. A watch left running costs battery
+     * and keeps the GPS warm, so it is started deliberately and
+     * stopped the moment the route is cleared or following is
+     * switched off.
+     */
+    var followWatch = null;
+    var followButton = null;
 
     /*
      * Built fresh every time a popup opens, so a route button can appear once
@@ -1032,6 +1075,54 @@
      * the straight-line figure is shown instead, clearly labelled, so the map
      * stays useful with no network and no third party.
      */
+    /*
+     * Take the route off the map.
+     *
+     * A drawn route used to stay until another replaced it, so a
+     * visitor who had looked up one way and then wanted to read the
+     * coast underneath had no way to put the line away.
+     *
+     * The climb panel goes with it. It describes THIS route, and
+     * leaving it open beside no line is a figure about nothing.
+     */
+    /*
+     * Let go of the GPS.
+     *
+     * Safe to call when nothing is running — the route clear, the
+     * second press of the button and the page unload all go through
+     * here, and only one of them will have a watch to cancel.
+     */
+    function stopFollowing() {
+      if (followWatch !== null) {
+        navigator.geolocation.clearWatch(followWatch);
+        followWatch = null;
+      }
+
+      if (followButton) {
+        followButton.setAttribute('aria-pressed', 'false');
+        followButton.classList.remove('is-on');
+        followButton.innerHTML = '<i class="bi bi-broadcast me-1" aria-hidden="true"></i>';
+        followButton.appendChild(document.createTextNode('Follow my location'));
+      }
+    }
+
+    function clearRoute() {
+      if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+      }
+
+      if (profileBox) {
+        profileBox.hidden = true;
+      }
+
+      if (clearRouteButton) {
+        clearRouteButton.hidden = true;
+      }
+
+      report('');
+    }
+
     function routeBetween(from, to, button) {
       if (!from || !to || !routingUrl) {
         return;
@@ -1085,6 +1176,11 @@
           }).addTo(map);
 
           map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+
+          // There is a line to clear now, so offer the way to clear it.
+          if (clearRouteButton) {
+            clearRouteButton.hidden = false;
+          }
 
           var summary = journey + ': ' + formatKm(best.distance / 1000) +
             ' by road, about ' + formatMinutes(best.duration) + ' driving.';
@@ -1805,6 +1901,94 @@
           locate(button);
         });
       });
+
+      /*
+       * Clearing the route, and with it anything that described it.
+       *
+       * Also stops following. Somebody who has put the route away is
+       * no longer navigating, and leaving the GPS running after that
+       * drains a phone for nothing.
+       */
+      clearRouteButton = scope.querySelector('[data-map-clear-route]');
+
+      if (clearRouteButton) {
+        clearRouteButton.addEventListener('click', function () {
+          stopFollowing();
+          clearRoute();
+        });
+      }
+
+      /*
+       * FOLLOWING, which is the one thing here that keeps the GPS on.
+       *
+       * The locate button takes a handful of readings, keeps the
+       * sharpest and lets go. That is right for "where am I" and wrong
+       * for "I am walking there now", so this is the other mode: a
+       * watch that moves the pin as the reading changes, started only
+       * when asked and stopped on the second press, when the route is
+       * cleared, or when the page goes away.
+       */
+      followButton = scope.querySelector('[data-map-follow]');
+
+      if (followButton && navigator.geolocation) {
+        followButton.hidden = false;
+
+        followButton.addEventListener('click', function () {
+          if (followWatch !== null) {
+            stopFollowing();
+
+            return;
+          }
+
+          var blocked = geo.insecureOriginMessage();
+
+          if (blocked) {
+            report(blocked, true);
+
+            return;
+          }
+
+          followWatch = navigator.geolocation.watchPosition(
+            function (position) {
+              placeMe(
+                position.coords.latitude,
+                position.coords.longitude,
+                position.coords.accuracy,
+                false
+              );
+
+              /*
+               * The pin moves; the map does not chase it. Panning
+               * under somebody's thumb while they are reading the
+               * route is the thing every mapping app gets complained
+               * about, so the view is theirs until they recentre.
+               */
+            },
+            function (error) {
+              stopFollowing();
+
+              report(
+                error.code === error.PERMISSION_DENIED
+                  ? 'Location permission was refused, so following is off. '
+                    + 'You can allow it from the icon in the address bar.'
+                  : 'Could not keep track of your location just now.',
+                true
+              );
+            },
+            { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+          );
+
+          followButton.setAttribute('aria-pressed', 'true');
+          followButton.classList.add('is-on');
+          followButton.innerHTML = '<i class="bi bi-broadcast-pin me-1" aria-hidden="true"></i>';
+          followButton.appendChild(document.createTextNode('Stop following'));
+
+          report('Following your location. The pin moves as you do; the map stays where you put it.');
+        });
+      }
+
+      // Nothing should keep the GPS awake once the page is gone.
+      window.addEventListener('pagehide', stopFollowing);
 
       scope.querySelectorAll('[data-map-saved-place]').forEach(function (button) {
         button.addEventListener('click', function () {

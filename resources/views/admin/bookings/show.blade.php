@@ -32,27 +32,6 @@
                     <dt class="col-sm-4 text-muted-vd fw-normal">Guests</dt>
                     <dd class="col-sm-8"><x-guest-party :booking="$booking" /></dd>
 
-                    <dt class="col-sm-4 text-muted-vd fw-normal">Amount</dt>
-                    <dd class="col-sm-8">
-                        @peso($booking->total_amount, true)
-                        <span class="text-muted-vd">(@peso($booking->unit_price) per room, per night)</span>
-
-                        {{-- What came off, and why. The office reconciles these
-                             against the resort's own returns, so a total that is
-                             lower than rate x nights x rooms has to say so. --}}
-                        @if ((float) $booking->discount_total > 0)
-                            <span class="d-block small text-muted-vd">
-                                after @peso($booking->discount_total, true) off
-                                @if ((float) $booking->child_discount_amount > 0)
-                                    &middot; child {{ $booking->child_discount_percent }}%
-                                @endif
-                                @if ((float) $booking->pwd_discount_amount > 0)
-                                    &middot; PWD {{ $booking->pwd_discount_percent }}%
-                                @endif
-                            </span>
-                        @endif
-                    </dd>
-
                     <dt class="col-sm-4 text-muted-vd fw-normal">Requested</dt>
                     <dd class="col-sm-8 mb-0">{{ $booking->created_at->format('M j, Y g:i A') }}</dd>
                 </dl>

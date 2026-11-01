@@ -3514,6 +3514,20 @@ th[aria-sort] {
   flex-shrink: 0;
 }
 
+/*
+ * "Follow my location" while it is actually following.
+ *
+ * Filled rather than outlined, because this is the one control on the
+ * map that leaves something running — the GPS watch — and a visitor
+ * should be able to tell at a glance that it is on and costing them
+ * battery. aria-pressed carries the same fact to a screen reader.
+ */
+.vd-mapstage__tools [data-map-follow].is-on {
+  background: var(--vd-lagoon);
+  border-color: var(--vd-lagoon);
+  color: #FFFFFF;
+}
+
 .vd-mapstage__scroll {
   overflow-y: auto;
   overscroll-behavior: contain;

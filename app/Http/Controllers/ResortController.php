@@ -52,7 +52,22 @@ class ResortController extends Controller
             ->bookable()
             ->join('resorts', 'resorts.id', '=', 'rooms.resort_id')
             ->select('rooms.*')
-            ->with(['resort.amenities' => fn (Builder $amenity) => $amenity->where('amenities.is_active', true), 'images'])
+->with([
+    'resort' => function ($query) {
+        $query
+            ->withCount([
+                'reviews as rating_count' => fn ($review) =>
+                    $review->where('status', 'published'),
+            ])
+            ->withAvg([
+                'reviews as rating_average' => fn ($review) =>
+                    $review->where('status', 'published'),
+            ], 'rating');
+    },
+    'resort.amenities' => fn ($amenity) =>
+        $amenity->where('amenities.is_active', true),
+    'images',
+])
             ->when($filters['q'] !== '', function (Builder $query) use ($filters) {
                 $query->where(function (Builder $match) use ($filters) {
                     $match->where('rooms.name', 'like', "%{$filters['q']}%")
@@ -161,7 +176,8 @@ class ResortController extends Controller
                 ->get(),
             'nearby' => Resort::publiclyVisible()
                 ->whereKeyNot($resort->id)
-                ->with(['amenities' => fn (Builder $amenity) => $amenity->where('amenities.is_active', true)])
+                
+                ->with(['amenities' => fn ($amenity) => $amenity->where('amenities.is_active', true)])
                 ->withMin(['rooms as starting_price' => fn ($query) => $query->active()], 'price_per_night')
                 ->orderByRaw('CASE WHEN barangay = ? THEN 0 ELSE 1 END', [$resort->barangay])
                 ->orderByDesc('is_featured')

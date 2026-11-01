@@ -138,6 +138,25 @@
                             Forget that spot
                         </button>
 
+                        {{-- Keeping up with somebody who is moving.
+                             Off until asked: a watch left running keeps the
+                             GPS warm and costs battery, which is not a thing
+                             to switch on behind a visitor's back. Stops by
+                             itself when the route is cleared. --}}
+                        <button type="button" class="btn btn-sm btn-outline-primary w-100"
+                                data-map-follow aria-pressed="false" hidden>
+                            <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Follow my location
+                        </button>
+
+                        {{-- Only once there is a line on the map. A route used
+                             to stay until another replaced it, so a visitor who
+                             wanted to read the coast underneath it could not
+                             put it away. --}}
+                        <button type="button" class="btn btn-sm btn-outline-secondary w-100"
+                                data-map-clear-route hidden>
+                            <i class="bi bi-x-lg me-1" aria-hidden="true"></i>Clear route
+                        </button>
+
                         <p class="vd-map-readout mb-0" data-map-readout role="status" hidden></p>
 
                         {{-- Said before the button is pressed, not after it

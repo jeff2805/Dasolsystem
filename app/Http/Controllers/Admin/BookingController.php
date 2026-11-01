@@ -35,7 +35,6 @@ class BookingController extends Controller
             'check_in' => '-check_in_date',
             'check_out' => '-check_out_date',
             'guests' => '-guests',
-            'total' => '-total_amount',
             'status' => 'status',
         ], default: 'requested');
 

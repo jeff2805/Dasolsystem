@@ -64,11 +64,12 @@
                                 {{-- Served through a controller that authorises
                                      first. The files are on the private disk and
                                      have no public URL at all. --}}
-                                {{-- x-external-link, not a bare target="_blank".
-                                     The component appends the "opens in a new
-                                     tab" note every other such link on this
-                                     site carries, which UiConsistencyTest
-                                     requires and a screen reader needs. --}}
+                                {{-- x-external-link rather than opening a new
+                                     tab by hand. The component appends the
+                                     "opens in a new tab" note every other such
+                                     link on this site carries, which
+                                     UiConsistencyTest requires and a screen
+                                     reader needs. --}}
                                 <x-external-link class="vd-bubble__picture"
                                                  :href="route('messages.attachment', $attachment)">
                                     <img src="{{ route('messages.attachment', $attachment) }}"

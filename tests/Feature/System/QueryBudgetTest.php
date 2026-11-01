@@ -113,8 +113,25 @@ class QueryBudgetTest extends TestCase
         $counts = [];
 
         foreach ($this->pages() as $label => [$user, $url]) {
+            /*
+             * A page listed with no user is a page measured SIGNED OUT.
+             *
+             * This used only to log in and never out, so once any page
+             * had authenticated, every later null-user page inherited
+             * that session — and the second pass began still signed in
+             * as the last page's user. "home" was therefore counted as
+             * a guest the first time and as a tourist the second, and
+             * the two numbers were never comparable.
+             *
+             * It stayed hidden while nothing on the public pages cost a
+             * query per signed-in visitor. The header's unread message
+             * count does, so the leak started reading as an N+1 that
+             * was not there.
+             */
             if ($user) {
                 $this->actingAs($user);
+            } else {
+                auth()->logout();
             }
 
             DB::flushQueryLog();

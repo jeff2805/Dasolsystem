@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Models\Amenity;
 use App\Models\Announcement;
 use App\Models\Booking;
+use App\Models\Conversation;
 use App\Models\Destination;
 use App\Models\DestinationCategory;
 use App\Models\DestinationImage;
@@ -19,6 +20,7 @@ use App\Models\Review;
 use App\Models\Room;
 use App\Models\RoomImage;
 use App\Models\User;
+use App\Services\MessagingService;
 use App\Support\Asset;
 use App\Support\Money;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -90,6 +92,40 @@ class AppServiceProvider extends ServiceProvider
             $view->with($request->attributes->get($key));
         });
 
+        /*
+         * The unread count on the header's Messages button.
+         *
+         * A composer rather than a variable passed from thirty
+         * controllers: the navbar renders on every public page, and
+         * any controller that forgot would show a guest a badge of
+         * zero while a resort was waiting on them.
+         *
+         * Counted once per request and remembered on it, the same way
+         * the office's badges are, because the navbar can render more
+         * than once on a page. Signed-out visitors cost no query.
+         */
+        View::composer(['partials.navbar', 'partials.sidebar-owner'], function ($view): void {
+            $user = auth()->user();
+
+            if ($user === null) {
+                $view->with('unreadMessages', 0);
+
+                return;
+            }
+
+            $request = request();
+            $key = 'visitdasol.unread_messages';
+
+            if (! $request->attributes->has($key)) {
+                $request->attributes->set(
+                    $key,
+                    app(MessagingService::class)->unreadCountFor($user)
+                );
+            }
+
+            $view->with('unreadMessages', $request->attributes->get($key));
+        });
+
         // The password reset email, in Visit Dasol's own words.
         ResetPassword::toMailUsing(function (User $user, string $token): MailMessage {
             $url = route('password.reset', ['token' => $token, 'email' => $user->getEmailForPasswordReset()]);
@@ -137,6 +173,14 @@ class AppServiceProvider extends ServiceProvider
             'payment' => Payment::class,
             'resort_extra' => ResortExtra::class,
             'booking_extra' => BookingExtra::class,
+
+            /*
+             * Messaging. Registered because the audit trail records
+             * that a conversation was opened — never what was said in
+             * it. The bodies are private between the two parties, and
+             * the log is read by the office.
+             */
+            'conversation' => Conversation::class,
 
             /*
              * The environmental_fee_* names were here. Their models are

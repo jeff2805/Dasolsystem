@@ -1380,6 +1380,46 @@ th[aria-sort] {
   }
 }
 
+/*
+ * The Messages button in the header, and the count on it.
+ *
+ * HERE RATHER THAN IN messages.css because it is on every page,
+ * and that file is loaded only on the two messaging screens.
+ *
+ * The count uses the palette's own rejected-state red, which is the
+ * one red this site already uses, rather than introducing a second.
+ */
+.vd-msg-link {
+  position: relative;
+}
+
+.vd-msg-link__count {
+  position: absolute;
+  top: -.3rem;
+  right: -.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 .3rem;
+  border-radius: 999px;
+  background: var(--vd-status-rejected-fg);
+  color: #FFFFFF;
+  font-size: .7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Stacked on a phone, where the header buttons go full width and an
+   absolutely positioned badge would hang off the edge. */
+@media (max-width: 991.98px) {
+  .vd-msg-link__count {
+    position: static;
+    margin-left: .4rem;
+  }
+}
+
 .vd-footer {
   position: relative;
   overflow: hidden;

@@ -48,6 +48,8 @@ use App\Http\Controllers\Owner\ResortImageController as OwnerResortImageControll
 use App\Http\Controllers\Auth\OwnerRegistrationController;
 use App\Http\Controllers\Auth\TouristRegistrationController;
 use App\Http\Controllers\Tourist\ManualPaymentController;
+use App\Http\Controllers\ConversationController;
+use App\Http\Controllers\MessageAttachmentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Dev\SetupCheckController;
 use App\Http\Controllers\ProfileController;
@@ -240,6 +242,52 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    /*
+    |----------------------------------------------------------------
+    | MESSAGES — a guest and a resort, in private
+    |----------------------------------------------------------------
+    |
+    | SHARED, not under /tourist or /owner, because both sides use the
+    | same four screens and the same authorisation. Splitting them
+    | would be two copies of one rule, and the day those drift is the
+    | day one of them leaks somebody's correspondence.
+    |
+    | Who may see what is ConversationPolicy's business, and it admits
+    | exactly two people: the guest who opened the thread and whoever
+    | owns the resort now. The tourism office is not among them and
+    | has no screen here — see the policy for why.
+    |
+    | Verified, like the rest of the signed-in site: an unconfirmed
+    | address should not be able to start writing to a business.
+    */
+    Route::middleware('verified')->group(function () {
+        Route::get('/messages', [ConversationController::class, 'index'])->name('messages.index');
+
+        // Above /messages/{conversation}, or "unread-count" is read as an id.
+        Route::get('/messages/unread-count', [ConversationController::class, 'unreadCount'])
+            ->middleware('throttle:60,1')
+            ->name('messages.unread-count');
+
+        Route::get('/messages/{conversation}', [ConversationController::class, 'show'])->name('messages.show');
+
+        Route::post('/messages/{conversation}', [ConversationController::class, 'store'])
+            ->middleware('throttle:30,1')
+            ->name('messages.store');
+
+        // Opens the thread with a resort, or returns the existing one.
+        Route::post('/messages/resort/{resort}', [ConversationController::class, 'start'])
+            ->middleware('throttle:20,1')
+            ->name('messages.start');
+
+        /*
+        | A picture somebody sent. The files are on the private disk,
+        | so this action is the whole of the access control and it
+        | authorises against the conversation before reading a byte.
+        */
+        Route::get('/messages/attachments/{attachment}', MessageAttachmentController::class)
+            ->name('messages.attachment');
+    });
 });
 
 /*

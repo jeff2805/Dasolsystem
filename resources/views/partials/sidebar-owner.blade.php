@@ -49,6 +49,17 @@
         Reservations
     </x-sidebar-link>
 
+    {{-- Guests who have written in. Under Guests rather than Account
+         because it is about the people staying, not about the owner's
+         own settings. --}}
+    <x-sidebar-link
+        route="messages.index"
+        match="messages.*"
+        icon="chat-dots"
+        :count="$unreadMessages ?? null">
+        Messages
+    </x-sidebar-link>
+
     <x-sidebar-link route="owner.availability" icon="calendar3">
         Availability
     </x-sidebar-link>

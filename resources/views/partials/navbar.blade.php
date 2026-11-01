@@ -36,6 +36,33 @@
                             <i class="bi bi-grid me-1" aria-hidden="true"></i>Dashboard
                         </a>
                     @endif
+
+                    {{-- Messages, between Dashboard and the account menu.
+                         Nothing else moves.
+
+                         The brief asked for this "beside the existing
+                         Notifications icon". There is no notifications
+                         icon in this header — so it sits where that one
+                         would have been, and the arrangement is otherwise
+                         exactly as it was.
+
+                         The count is rendered by the server on every page
+                         load, so it is right without any JavaScript at
+                         all. messages.js only keeps it fresh while the
+                         guest is already on a messaging page. --}}
+                    @if (Route::has('messages.index'))
+                        <a class="btn btn-light border vd-msg-link" href="{{ route('messages.index') }}"
+                           data-unread-label
+                           aria-label="Messages{{ ($unreadMessages ?? 0) > 0 ? ', '.$unreadMessages.' unread' : '' }}">
+                            <i class="bi bi-chat-dots" aria-hidden="true"></i>
+                            <span class="d-lg-none ms-1">Messages</span>
+
+                            <span class="vd-msg-link__count"
+                                  data-unread-count="{{ route('messages.unread-count') }}"
+                                  @if (($unreadMessages ?? 0) < 1) hidden @endif>{{ ($unreadMessages ?? 0) > 99 ? '99+' : ($unreadMessages ?? 0) }}</span>
+                        </a>
+                    @endif
+
                     <div class="dropdown">
                         <button class="btn btn-light border w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             {{ auth()->user()->first_name }}

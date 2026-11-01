@@ -528,6 +528,23 @@
 
             {{-- Resort sidebar --}}
             <div class="col-lg-4">
+                {{-- Ask before booking.
+                     Only a signed-in tourist: the policy refuses an owner
+                     or the office, and a signed-out visitor would be
+                     offered a button that could only bounce them to the
+                     sign-in page. POST, because it can open a thread. --}}
+                @auth
+                    @if (auth()->user()->isTourist() && Route::has('messages.start'))
+                        <form class="mb-4" method="POST"
+                              action="{{ route('messages.start', $resort) }}">
+                            @csrf
+                            <button class="btn btn-outline-primary w-100" type="submit">
+                                <i class="bi bi-chat-dots me-1" aria-hidden="true"></i>Message this resort
+                            </button>
+                        </form>
+                    @endif
+                @endauth
+
                 <aside class="vd-panel p-4 mb-4">
                     <h2 class="h5 mb-3">Good to know</h2>
 

@@ -3122,6 +3122,23 @@ th[aria-sort] {
   color: #FFFFFF;
 }
 
+/* The scale bar ------------------------------------------------------
+   Leaflet's own is a hairline black box, which disappears over dark
+   water and does not look like anything else on this site. Same white
+   ground and same type as the basemap buttons it shares a map with. */
+.vd-gis .leaflet-control-scale-line {
+  padding: .1rem .4rem;
+  border: 1px solid var(--vd-brine-dark);
+  border-top: 0;
+  background: rgba(255, 255, 255, .88);
+  color: var(--vd-bay);
+  font-family: inherit;
+  font-size: .75rem;
+  font-weight: 650;
+  line-height: 1.5;
+  text-shadow: none;
+}
+
 .vd-basemap__option:focus-visible {
   outline: 2px solid var(--vd-lagoon);
   outline-offset: -2px;
@@ -3373,10 +3390,19 @@ th[aria-sort] {
   margin-right: .25rem;
 }
 
-/* The road route drawn between the visitor and one resort. */
+/* The road route drawn between the visitor and one resort. Drawn twice:
+   a white casing underneath and the coloured road on top, so the line
+   holds up over dark water and forest on the imagery as well as over
+   the street map. Both wear .vd-route; only the casing adds the
+   modifier. */
 .vd-route {
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.vd-route--casing {
+  /* Never the thing you click — the road on top takes the pointer. */
+  pointer-events: none;
 }
 
 .vd-map-popup {
@@ -4910,7 +4936,10 @@ th[aria-sort] {
 .vd-gis {
   --vd-gis-gap: var(--vd-space-sm);
   --vd-gis-pane: 20rem;
-  --vd-gis-height: clamp(26rem, 70vh, 46rem);
+  /* The height of all three columns from 768px up. Raised when the date
+     pickers left the centre pane: the map was the reason for the height,
+     and it is now the only thing in there. */
+  --vd-gis-height: clamp(28rem, 76vh, 50rem);
 
   padding: var(--vd-space-md) clamp(var(--vd-space-md), 2.5vw, var(--vd-space-2xl))
            var(--vd-space-2xl);
@@ -5155,17 +5184,24 @@ th[aria-sort] {
 
 /* Centre pane: map and its furniture ----------------------------------- */
 
-.vd-gis__dates {
-  margin: 0;
-  padding-bottom: var(--vd-space-xs);
-  border-bottom: 1px solid var(--vd-brine);
-}
+/* .vd-gis__dates was the divider above the map: a padded row with a rule
+   under it, holding the check-in and check-out pickers. Those pickers have
+   been removed from this page, and this was the only element that ever wore
+   the class, so the rule went with them. The map now starts at the top of
+   its pane with nothing between.
+
+   The pickers' own styling (.vd-mapdates) is deliberately still here: it
+   belongs to the shared <x-visit-map> component rather than to this page. */
 
 .vd-gis__canvaswrap {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  height: clamp(18rem, 52vh, 28rem);
+  /* Stacked layout only. The pane does not constrain its height here, so
+     the space the pickers used to take is space the map has to claim for
+     itself — hence a taller floor and ceiling than before. Above 768px the
+     pane sets the height and `flex: 1 1 auto` above absorbs the rest. */
+  height: clamp(22rem, 60vh, 34rem);
 }
 
 .vd-gis__canvas {
@@ -5407,7 +5443,9 @@ th[aria-sort] {
     padding: var(--vd-space-sm) var(--vd-space-sm) var(--vd-space-xl);
   }
 
-  .vd-gis__canvaswrap { height: 60vh; }
+  /* The map is the page on a phone, and it no longer shares the pane with
+     a pair of date pickers. */
+  .vd-gis__canvaswrap { height: 68vh; }
   .vd-gis__pane--list { max-height: 24rem; }
   .vd-gis__stats { grid-template-columns: 1fr; }
 

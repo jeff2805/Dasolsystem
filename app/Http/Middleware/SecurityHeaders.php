@@ -10,8 +10,9 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Security headers on every web page.
  *
- * Mapbox and OpenStreetMap map tiles are allowed through img-src.
- * Routing services are allowed through connect-src.
+ * Map tile hosts are allowed through img-src and routing services
+ * through connect-src. Both are read from config/visitdasol.php, so a
+ * provider is changed in one place and the policy follows.
  *
  * Signed-in pages also get Cache-Control: no-store.
  */
@@ -28,8 +29,17 @@ class SecurityHeaders
             config('visitdasol.map.satellite_labels_url'),
             config('visitdasol.map.satellite_roads_url'),
 
-            // Mapbox tile provider.
-            'https://api.mapbox.com',
+            /*
+             * api.mapbox.com was named here by hand while the street
+             * and satellite layers came from Mapbox. They come from
+             * OpenStreetMap and Esri now, and both are read from the
+             * config above, so a hardcoded host would only permit a
+             * provider this application no longer calls.
+             *
+             * Nothing replaces it: every tile host belongs in
+             * config/visitdasol.php, where changing a provider updates
+             * the policy with it.
+             */
         ], 'tile.openstreetmap.org');
 
         $routing = $this->hosts([
@@ -55,7 +65,9 @@ class SecurityHeaders
             "style-src 'self' 'unsafe-inline'",
             'img-src '.trim("'self' data: ".$tiles),
             "font-src 'self'",
-            'connect-src '.trim("'self' ".$routing." https://api.mapbox.com"),
+            // The routing service, and nothing else. Mapbox was named
+            // here too and is no longer called.
+            'connect-src '.trim("'self' ".$routing),
             "object-src 'none'",
             "base-uri 'self'",
             'form-action '.trim("'self' ".$checkout),

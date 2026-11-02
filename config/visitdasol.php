@@ -132,15 +132,36 @@ return [
         'zoom' => 12,
         'min_zoom' => 10,
         'max_zoom' => 18,
-        'mapbox_token' => env('MAPBOX_PUBLIC_TOKEN'),
+        /*
+        | mapbox_token was here. Nothing reads it now that the tiles
+        | come from OpenStreetMap and Esri, neither of which needs an
+        | account.
+        |
+        | MAPBOX_PUBLIC_TOKEN is left in .env and in config/services.php
+        | on purpose: emptying somebody's environment file is not this
+        | change's business, and a token sitting unused costs nothing.
+        | Delete both when you are sure nothing else wants it.
+        */
         'bounds' => [
             'south' => 15.80,
             'west' => 119.72,
             'north' => 16.12,
             'east' => 120.02,
         ],
-        'tile_url' => 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/{z}/{x}/{y}?access_token=' . env('MAPBOX_PUBLIC_TOKEN'),
-'attribution' => '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        /*
+        | The street map: OpenStreetMap's own tiles.
+        |
+        | Back from Mapbox, which needed an account and a token on every
+        | tile request. OSM needs neither, and the road data underneath
+        | both was always theirs.
+        |
+        | Their tile usage policy asks for the attribution below and no
+        | heavy automated traffic. A municipal tourism map is well
+        | inside that; a busy production site should move to a tile host
+        | with a plan, and only this line changes when it does.
+        */
+        'tile_url' => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'attribution' => '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 
         /*
         | Aerial imagery, offered beside the street map by the layer switch.
@@ -151,11 +172,16 @@ return [
         | automatically (see App\Http\Middleware\SecurityHeaders), so the
         | browser will refuse tiles from anywhere this file does not name.
         */
-      'satellite_url' => 'https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}?access_token=' . env('MAPBOX_PUBLIC_TOKEN'),
+        'satellite_url' => 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 
-'satellite_attribution' => '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        'satellite_attribution' => 'Imagery &copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
 
-'satellite_max_zoom' => 19,
+        /*
+        | How deep Esri's imagery actually goes over Dasol. Leaflet will
+        | not ask for a tile past this; it stretches the last real one
+        | instead, so a close zoom goes soft rather than blank.
+        */
+        'satellite_max_zoom' => 19,
 
         /*
         | Names on top of the imagery.

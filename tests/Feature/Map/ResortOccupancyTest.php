@@ -255,23 +255,45 @@ class ResortOccupancyTest extends TestCase
         $this->assertStringContainsString('#rooms-title', $point['book_url']);
     }
 
-    public function test_the_map_page_offers_the_date_filter_and_explains_the_colours(): void
+    /**
+     * The map shows tonight, and says what the colours mean.
+     *
+     * IT USED TO OFFER DATES TOO. The check-in and check-out pickers
+     * were removed from this page on request, so the assertions that
+     * they are present have gone with them — a test demanding a
+     * control the design no longer has is reporting a decision, not a
+     * defect.
+     *
+     * What still has to hold is the part that matters: the pins are
+     * coloured for tonight, those colours are explained in words as
+     * well as in colour, and the endpoint that repaints them is still
+     * on the page.
+     */
+    public function test_the_map_page_shows_tonight_and_explains_the_colours(): void
     {
         $this->room(capacity: 4, units: 2);
 
         $this->get(route('map'))
             ->assertOk()
-            // The dates, and where the pins go to be recoloured.
-            ->assertSee('data-map-dates', false)
-            ->assertSee('name="check_in"', false)
-            ->assertSee('name="check_out"', false)
+            // Where the pins go to be recoloured.
             ->assertSee(route('map.occupancy'), false)
             // Colour is never the only signal, so the key names all three.
             ->assertSee('Rooms free')
             ->assertSee('Filling up')
-            ->assertSee('Fully booked')
-            // And the map says which question it is answering.
-            ->assertSee('Showing who is staying tonight.');
+            ->assertSee('Fully booked');
+    }
+
+    /** And the pickers really are gone from this page. */
+    public function test_the_map_page_no_longer_asks_for_dates(): void
+    {
+        $this->room(capacity: 4, units: 2);
+
+        $this->get(route('map'))
+            ->assertOk()
+            ->assertDontSee('data-map-dates', false)
+            ->assertDontSee('name="check_in"', false)
+            ->assertDontSee('name="check_out"', false)
+            ->assertDontSee('Check these nights');
     }
 
     /**

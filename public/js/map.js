@@ -322,9 +322,25 @@
 
     /* Base layers ------------------------------------------------------- */
 
+    /*
+     * A ring of tiles beyond the edge of the screen, so a drag shows map
+     * rather than the grey behind it. Leaflet keeps two by default; four
+     * covers an ordinary flick on a phone.
+     */
+    var KEEP_BUFFER = 4;
+
     var streets = L.tileLayer(element.dataset.tileUrl, {
       maxZoom: maxZoom,
+      keepBuffer: KEEP_BUFFER,
       attribution: element.dataset.attribution,
+
+      /*
+       * NO detectRetina HERE, deliberately — see the imagery below, which
+       * does use it. Retina mode fetches the tiles of the next zoom in
+       * and shrinks them. On a photograph that is pure detail; on a drawn
+       * street map it also halves the size of every road name and
+       * barangay label, which is the opposite of clearer.
+       */
     }).addTo(map);
 
     var satellite = null;
@@ -354,9 +370,62 @@
       // map's own ceiling is raised to match while it is showing.
       satelliteMax = parseInt(element.dataset.satelliteMaxZoom, 10) || maxZoom;
 
+      /*
+       * Retina mode shifts two numbers, and both have to be shifted back
+       * or the imagery breaks at the closest zoom. From Leaflet's own
+       * source (public/vendor/leaflet/leaflet.js):
+       *
+       *   - initialize() does zoomOffset++ and maxZoom--, so the layer
+       *     asks for ONE ZOOM DEEPER than the map is showing. Against
+       *     Esri's last published level that is a request for a tile
+       *     nobody ever made, and the answer is a grey "no data" square.
+       *     Hence a maxNativeZoom one lower: the deepest tile asked for
+       *     is then exactly the deepest tile that exists.
+       *
+       *   - _setView() blanks the layer outright when the map's zoom is
+       *     past the layer's maxZoom, and it tests that BEFORE clamping
+       *     to maxNativeZoom. With the decrement above, a layer capped
+       *     at the map's own ceiling disappears the moment somebody
+       *     zooms all the way in. Hence a ceiling one higher, which the
+       *     decrement brings back to the real one. The map's own
+       *     setMaxZoom still decides how far a visitor can go.
+       *
+       * On an ordinary display neither shift happens, so neither
+       * correction is applied and the layer behaves exactly as before.
+       */
+      var retinaTiles = L.Browser.retina;
+
       satellite = L.tileLayer(element.dataset.satelliteUrl, {
-        maxZoom: satelliteMax,
+        maxZoom: retinaTiles ? satelliteMax + 1 : satelliteMax,
+        keepBuffer: KEEP_BUFFER,
         attribution: element.dataset.satelliteAttribution,
+
+        /*
+         * SHARPNESS ON A HIGH-DENSITY SCREEN.
+         *
+         * Most laptops and every phone draw two or more device pixels
+         * for each CSS pixel. Without this the browser is handed a
+         * 256-pixel photograph and asked to paint it across 512, and
+         * the coastline goes soft — which is what it looked like.
+         *
+         * Retina mode asks for the next zoom level in and draws it at
+         * half size, so the imagery arrives at the density the screen
+         * actually has. There is no lettering on a photograph to shrink,
+         * which is why it suits the imagery and not the street map.
+         *
+         * It costs four tiles where there was one, and only on screens
+         * that can show the difference: Leaflet checks the device and
+         * leaves an ordinary display alone.
+         */
+        detectRetina: true,
+
+        /*
+         * The deepest tile to ask for, counted in the layer's own zoom
+         * rather than the map's — which is why retina takes one off it,
+         * as the note above this layer explains. Past it the last real
+         * tile is stretched, so a close zoom goes soft instead of blank.
+         */
+        maxNativeZoom: retinaTiles ? satelliteMax - 1 : satelliteMax,
       });
 
       map.createPane('vd-labels');
@@ -377,6 +446,10 @@
         labelLayers.push(L.tileLayer(url, {
           pane: 'vd-labels',
           maxZoom: satelliteMax,
+          keepBuffer: KEEP_BUFFER,
+
+          // These are lettering, so they are left at ordinary density for
+          // the same reason the street map is: see the note on it above.
 
           /*
            * The reference layers are published to the same depth as the
@@ -393,6 +466,24 @@
         }));
       });
     }
+
+    /*
+     * HOW FAR IS THAT.
+     *
+     * The imagery gives no sense of distance on its own — a bay could be
+     * two hundred metres across or two kilometres, and nothing on the
+     * photograph says which. A scale bar answers that without a click,
+     * and it redraws itself as the map is zoomed.
+     *
+     * Metric only. The imperial half would be a second number nobody
+     * here reads, in a corner that is already carrying the credits.
+     */
+    L.control.scale({
+      position: 'bottomright',
+      metric: true,
+      imperial: false,
+      maxWidth: 140,
+    }).addTo(map);
 
     /*
      * Choosing between the street map and the imagery.
@@ -1171,9 +1262,25 @@
             map.removeLayer(routeLine);
           }
 
-          routeLine = L.geoJSON(best.geometry, {
-            style: { className: 'vd-route', color: '#0F7C7A', weight: 5, opacity: .85 },
-          }).addTo(map);
+          /*
+           * Two lines, not one: a white casing with the teal road on
+           * top of it.
+           *
+           * A single teal line is legible on the street map's pale
+           * ground and very nearly invisible over dark water or forest
+           * on the imagery — which is where somebody is most likely to
+           * be looking at a route. The casing gives it an edge against
+           * whatever is underneath, the way every road atlas draws a
+           * road.
+           */
+          routeLine = L.featureGroup([
+            L.geoJSON(best.geometry, {
+              style: { className: 'vd-route vd-route--casing', color: '#FFFFFF', weight: 9, opacity: .9 },
+            }),
+            L.geoJSON(best.geometry, {
+              style: { className: 'vd-route', color: '#0F7C7A', weight: 5, opacity: .95 },
+            }),
+          ]).addTo(map);
 
           map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
 
@@ -1329,6 +1436,14 @@
       map.removeLayer(routeLine);
 
       var painted = L.layerGroup();
+
+      // The same white casing the plain route gets, laid down first so
+      // every coloured stretch sits on top of it. Without it the gentle
+      // stretches are a thin teal line over dark water again.
+      L.polyline(
+        geometry.coordinates.map(function (pair) { return [pair[1], pair[0]]; }),
+        { className: 'vd-route vd-route--casing', color: '#FFFFFF', weight: 9, opacity: .9 }
+      ).addTo(painted);
 
       for (var i = 1; i < marks.length; i++) {
         var grade = measured[i].grade;

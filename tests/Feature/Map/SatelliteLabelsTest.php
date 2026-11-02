@@ -60,10 +60,23 @@ class SatelliteLabelsTest extends TestCase
      *     buttons have nothing behind them;
      *   - it is a real tile URL, so Leaflet can fill in the numbers;
      *   - it is credited, because every provider's licence requires it;
-     *   - the name overlays come from somewhere else. They have to be
-     *     published as TRANSPARENT reference tiles. An ordinary street
-     *     layer is opaque and would simply hide the photograph, which
-     *     is the street map with extra steps.
+     *   - the name overlays are a DIFFERENT LAYER from the imagery and
+     *     from the street map. They have to be published as TRANSPARENT
+     *     reference tiles. An ordinary street layer is opaque and would
+     *     simply hide the photograph, which is the street map with
+     *     extra steps.
+     *
+     * THAT LAST CHECK USED TO COMPARE HOSTS, which worked only while
+     * the imagery and the overlays came from two different vendors.
+     * They both come from Esri now — it publishes the opaque
+     * World_Imagery service and the transparent Reference services side
+     * by side — so a same-host comparison failed an arrangement that is
+     * correct. The comparison is between endpoints instead, which is
+     * what "a different layer" actually means.
+     *
+     * What this cannot do is prove a tile has an alpha channel; that
+     * needs the tile itself. It catches the mistake worth catching,
+     * which is aiming an overlay at a layer we already draw opaque.
      */
     public function test_the_imagery_is_configured_credited_and_separate_from_the_names(): void
     {
@@ -81,20 +94,30 @@ class SatelliteLabelsTest extends TestCase
             'Every tile provider requires attribution on the map.'
         );
 
-        $imagery = parse_url($map['satellite_url'], PHP_URL_HOST);
+        /*
+         * The two layers that are opaque by definition: the photograph
+         * the overlay sits on, and the street map it is an alternative
+         * to. An overlay pointed at either one is not an overlay.
+         */
+        $opaque = [
+            'satellite_url' => $map['satellite_url'],
+            'tile_url' => $map['tile_url'],
+        ];
 
         foreach (['satellite_labels_url', 'satellite_roads_url'] as $key) {
             if (! $map[$key]) {
                 continue;
             }
 
-            $this->assertNotSame(
-                $imagery,
-                parse_url($map[$key], PHP_URL_HOST),
-                "The {$key} overlay comes from the same host as the imagery. "
-                .'The overlays must be transparent reference tiles from a '
-                .'provider that publishes them as such.'
-            );
+            foreach ($opaque as $name => $url) {
+                $this->assertNotSame(
+                    $url,
+                    $map[$key],
+                    "The {$key} overlay is the same endpoint as {$name}, which is "
+                    .'drawn opaque. The overlays must be transparent reference '
+                    .'tiles published as such.'
+                );
+            }
         }
     }
 

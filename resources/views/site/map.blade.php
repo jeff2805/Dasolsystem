@@ -283,56 +283,17 @@
 
                 {{-- CENTRE: the map ------------------------------------------- --}}
                 <div class="vd-gis__pane vd-gis__pane--map">
-                    {{-- Which nights to show.
+                    {{-- The check-in and check-out pickers stood here.
 
-                         The map opens on tonight, because "is anywhere free
-                         right now" is the question a visitor already standing
-                         in Dasol is asking. Naming dates turns the same pins
-                         into a forecast for those nights, and the readout
-                         below says which of the two is on screen — a visitor
-                         who mistakes a forecast for tonight turns up to a full
-                         resort.
+                         They turned the pins into a forecast for chosen
+                         nights. Removed from the map on request; the
+                         pins still show TONIGHT, which the server works
+                         out and sends with each point, so the colours and
+                         the legend below are unchanged.
 
-                         A plain form, so it still submits and still works when
-                         no script runs. --}}
-                    <form class="vd-mapdates vd-gis__dates" data-map-dates
-                          action="{{ route('map') }}" method="GET">
-                        <div class="vd-mapdates__field">
-                            <label class="form-label" for="map-check-in">Check-in</label>
-                            <input class="form-control form-control-sm" type="date"
-                                   id="map-check-in" name="check_in"
-                                   min="{{ now()->toDateString() }}"
-                                   max="{{ now()->addDays((int) config('visitdasol.booking.max_advance_days'))->toDateString() }}"
-                                   value="{{ request('check_in') }}"
-                                   data-map-check-in>
-                        </div>
-
-                        <div class="vd-mapdates__field">
-                            <label class="form-label" for="map-check-out">Check-out</label>
-                            <input class="form-control form-control-sm" type="date"
-                                   id="map-check-out" name="check_out"
-                                   min="{{ now()->addDay()->toDateString() }}"
-                                   value="{{ request('check_out') }}"
-                                   data-map-check-out>
-                        </div>
-
-                        <button type="submit" class="btn btn-sm btn-accent" data-map-dates-go>
-                            <i class="bi bi-calendar-check me-1" aria-hidden="true"></i>Check these nights
-                        </button>
-
-                        <button type="button" class="btn btn-sm btn-light border"
-                                data-map-dates-clear hidden>
-                            Back to tonight
-                        </button>
-
-                        {{-- role="status" so the change is announced: the pins
-                             recolour silently otherwise, which tells a screen
-                             reader user nothing at all. --}}
-                        <p class="vd-mapdates__readout mb-0" data-map-dates-readout role="status">
-                            Showing who is staying tonight.
-                        </p>
-                    </form>
-
+                         Choosing other nights now belongs to the resort
+                         pages and the stay search, which is where a
+                         visitor goes on to book anyway. --}}
                     <div class="vd-gis__canvaswrap">
                         <x-visit-map :points="$points" :barangays="$barangays"
                                      :fuel="$fuel" :barangay-shapes="$barangayShapes"
@@ -600,7 +561,12 @@
                 <li>
                     <span class="vd-gis__feature-no">4</span>
                     <h2>Rooms free tonight</h2>
-                    <p>Pins are coloured by what each resort has confirmed. Name other nights to see those instead.</p>
+                    {{-- "Name other nights to see those instead" was here, and
+                         described the date pickers that have been removed from
+                         this page. A card promising a control that is not on
+                         the screen is worse than one that says less. --}}
+                    <p>Pins are coloured by what each resort has confirmed for tonight.
+                        Open a resort to choose other dates.</p>
                 </li>
                 <li>
                     <span class="vd-gis__feature-no">5</span>
